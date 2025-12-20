@@ -2,8 +2,7 @@ Markdown# GrindMap 🚀
 
 **GrindMap** is a modern, all-in-one coding progress tracker that lets you monitor your performance across multiple competitive programming platforms in one beautiful dashboard.
 
-![GrindMap Screenshot](https://via.placeholder.com/1200x600.png?text=GrindMap+Dashboard+Preview)  
-*(Replace with actual screenshot once deployed)*
+
 
 ## Features
 
