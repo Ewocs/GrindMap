@@ -193,6 +193,13 @@ High-level flow of the application:
    - Updates UI based on received data
 
 
+### 💡 This architecture ensures
+---
+- Clear separation of concerns
+- Easier debugging and scaling
+- Smooth onboarding for new contributors
+
+
 
 ## 📝 License
 
