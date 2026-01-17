@@ -4,6 +4,7 @@ import CircularProgress from "./components/CircularProgress";
 import ActivityHeatmap from "./components/ActivityHeatmap";
 import DemoPage from "./components/DemoPage";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import UsernameInputs from "./components/UsernameInputs";
 import { useGrindMapData } from "./hooks/useGrindMapData";
 import { PLATFORMS, OVERALL_GOAL } from "./utils/platforms";
 
@@ -79,27 +80,12 @@ function App() {
           </div>
           <h1>GrindMap</h1>
 
-          <div className="username-inputs">
-            <h2>Enter Your Usernames</h2>
-            {PLATFORMS.map((plat) => (
-              <div key={plat.key} className="input-group">
-                <label>{plat.name}</label>
-                <input
-                  type="text"
-                  value={usernames[plat.key]}
-                  onChange={(e) => handleChange(plat.key, e.target.value)}
-                  placeholder={`Your ${plat.name} username`}
-                />
-              </div>
-            ))}
-            <button
-              onClick={fetchAll}
-              disabled={loading}
-              className="refresh-btn"
-            >
-              {loading ? "Loading..." : "Refresh All"}
-            </button>
-          </div>
+          <UsernameInputs
+            usernames={usernames}
+            onChange={handleChange}
+            onFetch={fetchAll}
+            loading={loading}
+          />
 
           <div className="overall">
             <h2>Overall Progress</h2>
