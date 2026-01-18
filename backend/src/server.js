@@ -1,23 +1,24 @@
-import express from 'express';
-import cors from 'cors';
-import mongoose from 'mongoose';
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import mongoose from "mongoose";
 
-import { scrapeLeetCode } from './services/scraping/leetcode.scraper.js';
+import { scrapeLeetCode } from "./services/scraping/leetcode.scraper.js";
 
-import { fetchCodeforcesStats } from './services/scraping/codeforces.scraper.js';
-import { fetchCodeChefStats } from './services/scraping/codechef.scraper.js';
-import { normalizeCodeforces } from './services/normalization/codeforces.normalizer.js';
-import { normalizeCodeChef } from './services/normalization/codechef.normalizer.js';
+import { fetchCodeforcesStats } from "./services/scraping/codeforces.scraper.js";
+import { fetchCodeChefStats } from "./services/scraping/codechef.scraper.js";
+import { normalizeCodeforces } from "./services/normalization/codeforces.normalizer.js";
+import { normalizeCodeChef } from "./services/normalization/codechef.normalizer.js";
 
-import { backpressureManager } from './utils/backpressure.util.js';
-import { rateLimiter } from './utils/rateLimiter.util.js';
-import { memoryMonitor } from './middlewares/memory.middleware.js';
-import { validate, sanitize } from './middlewares/validation.middleware.js';
-import { errorHandler } from './middlewares/error.middleware.js';
-import { tracingMiddleware } from './middlewares/tracing.middleware.js';
-import { withTrace } from './utils/serviceTracer.util.js';
-import { traceRoutes } from './routes/trace.routes.js';
-import { gracefulShutdown } from './utils/shutdown.util.js';
+import { backpressureManager } from "./utils/backpressure.util.js";
+import { rateLimiter } from "./utils/rateLimiter.util.js";
+import { memoryMonitor } from "./middlewares/memory.middleware.js";
+import { validate, sanitize } from "./middlewares/validation.middleware.js";
+import { errorHandler } from "./middlewares/error.middleware.js";
+import { tracingMiddleware } from "./middlewares/tracing.middleware.js";
+import { withTrace } from "./utils/serviceTracer.util.js";
+import { traceRoutes } from "./routes/trace.routes.js";
+import { gracefulShutdown } from "./utils/shutdown.util.js";
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -29,7 +30,7 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: "1mb" }));
 app.use(tracingMiddleware);
 app.use(sanitize);
 app.use(rateLimiter(20, 60000));
@@ -39,9 +40,9 @@ app.use(memoryMonitor);
 traceRoutes(app);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   const stats = backpressureManager.getStats();
-  res.json({ status: 'ok', traceId: req.traceId, ...stats });
+  res.json({ status: "ok", traceId: req.traceId, ...stats });
 });
 
 /**
@@ -50,27 +51,27 @@ app.get('/health', (req, res) => {
  * ----------------------------
  */
 app.get(
-  '/api/leetcode/:username',
-  validate({ username: { required: true, type: 'username' } }),
+  "/api/leetcode/:username",
+  validate({ username: { required: true, type: "username" } }),
   async (req, res) => {
     try {
       const data = await backpressureManager.process(() =>
-        withTrace(req.traceId, 'leetcode.scrape', () =>
-          scrapeLeetCode(req.params.username)
-        )
+        withTrace(req.traceId, "leetcode.scrape", () =>
+          scrapeLeetCode(req.params.username),
+        ),
       );
       res.json({ data, traceId: req.traceId });
     } catch (error) {
       if (
-        error.message.includes('Circuit breaker') ||
-        error.message.includes('Queue full')
+        error.message.includes("Circuit breaker") ||
+        error.message.includes("Queue full")
       ) {
         res.status(503).json({ error: error.message, traceId: req.traceId });
       } else {
         res.status(500).json({ error: error.message, traceId: req.traceId });
       }
     }
-  }
+  },
 );
 
 /**
@@ -79,16 +80,16 @@ app.get(
  * ----------------------------
  */
 app.get(
-  '/api/codeforces/:username',
-  validate({ username: { required: true, type: 'username' } }),
+  "/api/codeforces/:username",
+  validate({ username: { required: true, type: "username" } }),
   async (req, res) => {
     try {
       const username = req.params.username;
 
       const raw = await backpressureManager.process(() =>
-        withTrace(req.traceId, 'codeforces.scrape', () =>
-          fetchCodeforcesStats(username)
-        )
+        withTrace(req.traceId, "codeforces.scrape", () =>
+          fetchCodeforcesStats(username),
+        ),
       );
 
       const normalized = normalizeCodeforces({ ...raw, username });
@@ -100,9 +101,11 @@ app.get(
       if (error.message === "User not found") status = 404;
       if (error.message === "Rate limited") status = 429;
 
-      res.status(status).json({ success: false, error: error.message, traceId: req.traceId });
+      res
+        .status(status)
+        .json({ success: false, error: error.message, traceId: req.traceId });
     }
-  }
+  },
 );
 
 /**
@@ -111,16 +114,16 @@ app.get(
  * ----------------------------
  */
 app.get(
-  '/api/codechef/:username',
-  validate({ username: { required: true, type: 'username' } }),
+  "/api/codechef/:username",
+  validate({ username: { required: true, type: "username" } }),
   async (req, res) => {
     try {
       const username = req.params.username;
 
       const raw = await backpressureManager.process(() =>
-        withTrace(req.traceId, 'codechef.scrape', () =>
-          fetchCodeChefStats(username)
-        )
+        withTrace(req.traceId, "codechef.scrape", () =>
+          fetchCodeChefStats(username),
+        ),
       );
 
       const normalized = normalizeCodeChef({ ...raw, username });
@@ -132,9 +135,11 @@ app.get(
       if (error.message === "User not found") status = 404;
       if (error.message === "Rate limited") status = 429;
 
-      res.status(status).json({ success: false, error: error.message, traceId: req.traceId });
+      res
+        .status(status)
+        .json({ success: false, error: error.message, traceId: req.traceId });
     }
-  }
+  },
 );
 
 app.use(errorHandler);
