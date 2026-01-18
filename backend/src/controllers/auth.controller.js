@@ -18,8 +18,8 @@ const JWT_EXPIRES_IN = '7d';
  * @returns {string} JWT token
  */
 const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { 
-    expiresIn: JWT_EXPIRES_IN 
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN
   });
 };
 
@@ -39,8 +39,8 @@ class AuthController {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       throw new AppError(
-        "User already exists with this email", 
-        HTTP_STATUS.BAD_REQUEST, 
+        "User already exists with this email",
+        HTTP_STATUS.BAD_REQUEST,
         ERROR_CODES.USER_EXISTS
       );
     }
@@ -71,8 +71,8 @@ class AuthController {
     const user = await User.findOne({ email }).select('+password +loginAttempts +lockUntil');
     if (!user) {
       throw new AppError(
-        "Invalid email or password", 
-        HTTP_STATUS.UNAUTHORIZED, 
+        "Invalid email or password",
+        HTTP_STATUS.UNAUTHORIZED,
         ERROR_CODES.INVALID_CREDENTIALS
       );
     }
@@ -80,8 +80,8 @@ class AuthController {
     // Check if account is locked
     if (user.lockUntil && user.lockUntil > Date.now()) {
       throw new AppError(
-        "Account temporarily locked due to too many failed attempts", 
-        HTTP_STATUS.UNAUTHORIZED, 
+        "Account temporarily locked due to too many failed attempts",
+        HTTP_STATUS.UNAUTHORIZED,
         ERROR_CODES.ACCOUNT_LOCKED
       );
     }
@@ -92,8 +92,8 @@ class AuthController {
       // Atomic increment of login attempts
       await user.incLoginAttempts();
       throw new AppError(
-        "Invalid email or password", 
-        HTTP_STATUS.UNAUTHORIZED, 
+        "Invalid email or password",
+        HTTP_STATUS.UNAUTHORIZED,
         ERROR_CODES.INVALID_CREDENTIALS
       );
     }
@@ -115,16 +115,36 @@ class AuthController {
   });
 
   /**
+    * Handle GitHub OAuth callback
+    * @route GET /api/auth/github/callback
+    */
+  githubCallback = asyncHandler(async (req, res) => {
+    const user = req.user;
+    const token = generateToken(user._id);
+
+    // Atomic update for last login
+    await AtomicOperations.updateTokens(user._id, {
+      lastLogin: new Date()
+    });
+
+    // Validated Frontend URL
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    // Redirect to frontend with token
+    res.redirect(`${frontendUrl}/oauth/callback?token=${token}&userId=${user._id}&name=${encodeURIComponent(user.name)}`);
+  });
+
+  /**
    * Get current user profile
    * @route GET /api/auth/profile
    */
   getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
-    
+
     if (!user) {
       throw new AppError(
-        "User not found", 
-        HTTP_STATUS.NOT_FOUND, 
+        "User not found",
+        HTTP_STATUS.NOT_FOUND,
         ERROR_CODES.USER_NOT_FOUND
       );
     }

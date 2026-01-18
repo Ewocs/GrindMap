@@ -24,6 +24,7 @@ function AppContent() {
   const [showBadges, setShowBadges] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [user, setUser] = useState(null);
 
   const {
     usernames,
@@ -35,6 +36,33 @@ function AppContent() {
     getPlatformPercentage,
     hasSubmittedToday,
   } = useGrindMapData();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const userName = params.get('name');
+
+    if (token) {
+      localStorage.setItem('authToken', token);
+      if (userName) localStorage.setItem('userName', userName);
+      setUser({ name: userName, token });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      const storedToken = localStorage.getItem('authToken');
+      const storedName = localStorage.getItem('userName');
+      if (storedToken) setUser({ name: storedName, token: storedToken });
+    }
+  }, []);
+
+  const handleLogin = () => {
+    window.location.href = 'http://localhost:5001/api/auth/github';
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userName');
+    setUser(null);
+  };
 
   const toggleExpand = (key) => {
     setExpanded(expanded === key ? null : key);
@@ -75,6 +103,42 @@ function AppContent() {
         ) : (
           <>
             <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              {user ? (
+                <div style={{ display: 'inline-block', marginRight: '10px' }}>
+                  <span style={{ marginRight: '10px', fontWeight: 'bold' }}>👋 Hi, {user.name}</span>
+                  <button
+                    onClick={handleLogout}
+                    style={{
+                      padding: "10px 20px",
+                      fontSize: "1em",
+                      background: "#e74c3c",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      marginRight: "10px",
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  style={{
+                    padding: "10px 20px",
+                    fontSize: "1em",
+                    background: "#333",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    marginRight: "10px",
+                  }}
+                >
+                  🐙 Login with GitHub
+                </button>
+              )}
               <button
                 onClick={() => setShowDemo(true)}
                 style={{
@@ -194,21 +258,20 @@ function AppContent() {
                   return (
                     <div
                       key={plat.key}
-                      className={`activity-item ${
-                        submittedToday
+                      className={`activity-item ${submittedToday
                           ? "done"
                           : hasData
-                          ? "active-no-sub"
-                          : "missed"
-                      }`}
+                            ? "active-no-sub"
+                            : "missed"
+                        }`}
                     >
                       <span>{plat.name}</span>
                       <span>
                         {submittedToday
                           ? "✅ Coded Today"
                           : hasData
-                          ? "✅ Active (No submission today)"
-                          : "❌ No Data"}
+                            ? "✅ Active (No submission today)"
+                            : "❌ No Data"}
                       </span>
                     </div>
                   );

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import connectDB from './config/db.js';
@@ -9,6 +10,8 @@ import { sanitizeInput } from './middlewares/validation.middleware.js';
 import { generalLimiter } from './middlewares/rateLimiter.middleware.js';
 import { correlationId } from './middlewares/correlationId.middleware.js';
 import { performanceMetrics } from './middlewares/performance.middleware.js';
+import passport from 'passport';
+import configurePassport from './config/passport.js';
 
 // Import routes
 import scrapeRoutes from './routes/scrape.routes.js';
@@ -23,7 +26,9 @@ const PORT = process.env.PORT || 5001;
 const NODE_ENV = process.env.NODE_ENV || ENVIRONMENTS.DEVELOPMENT;
 
 // Connect to database
-connectDB();
+// Connect to database
+// connectDB(); // Removed to ensure we await it in startServer
+
 
 // Request tracking and monitoring (first)
 app.use(correlationId);
@@ -47,10 +52,15 @@ app.use(express.urlencoded({ extended: true }));
 // Input sanitization
 app.use(sanitizeInput);
 
+// Passport Middleware
+// Passport Middleware
+app.use(passport.initialize());
+configurePassport();
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   Logger.info('Health check accessed', { correlationId: req.correlationId });
-  
+
   res.status(HTTP_STATUS.OK).json({
     success: true,
     message: 'Server is healthy',
@@ -111,12 +121,23 @@ process.on('SIGTERM', () => {
 });
 
 // Start server
-const server = app.listen(PORT, () => {
-  Logger.info('Server started', {
-    port: PORT,
-    environment: NODE_ENV,
-    healthCheck: `http://localhost:${PORT}/health`
-  });
-});
+// Start server
+const startServer = async () => {
+  try {
+    await connectDB();
+    const server = app.listen(PORT, () => {
+      Logger.info('Server started', {
+        port: PORT,
+        environment: NODE_ENV,
+        healthCheck: `http://localhost:${PORT}/health`
+      });
+    });
+  } catch (error) {
+    Logger.error('Failed to connect to database', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;
