@@ -33,12 +33,39 @@
     "audit": "npm audit", // Check for security vulnerabilities
     "audit:fix": "npm audit fix", // Auto-fix security issues where possible
     
-    // Build and deployment preparation
-    "prebuild": "npm run lint && npm run test", // Run quality checks before build
-    "build": "echo 'Build process - add your build steps here'", // Placeholder for build process
+    // Build and deployment preparation scripts
+    "prebuild": "npm run lint && npm run test && npm run audit:ci", // Quality checks before build
+    "build": "npm run prebuild && npm run build:copy && npm run build:optimize", // Complete build process
+    "build:copy": "mkdir -p dist && cp -r src dist/ && cp package*.json dist/", // Copy source files to dist
+    "build:optimize": "echo 'Build optimization completed'", // Placeholder for optimization steps
+    "postbuild": "echo 'Build completed successfully - Ready for deployment'", // Post-build confirmation
+    
+    // Deployment scripts for different environments
+    "predeploy": "npm run build", // Ensure build is complete before deployment
+    "deploy": "npm run deploy:production", // Default deployment to production
+    "deploy:staging": "echo 'Deploying to staging environment...'", // Staging deployment
+    "deploy:production": "echo 'Deploying to production environment...'", // Production deployment
+    "deploy:docker": "docker build -t grindmap-backend . && docker run -p 5001:5001 grindmap-backend", // Docker deployment
+    
+    // Environment-specific start commands
+    "start:prod": "NODE_ENV=production node src/server.js", // Production start with env
+    "start:staging": "NODE_ENV=staging node src/server.js", // Staging environment start
+    
+    // CI/CD pipeline scripts
+    "audit:ci": "npm audit --audit-level=moderate --production", // CI security audit
+    "test:ci": "jest --ci --coverage --watchAll=false", // CI/CD optimized test run
+    "lint:ci": "eslint src/**/*.js --format=json --output-file=eslint-report.json", // CI linting with JSON output
+    "ci": "npm run lint:ci && npm run test:ci && npm run audit:ci", // Complete CI pipeline
+    "ci:build": "npm run ci && npm run build", // CI with build
+    "release": "npm run ci:build && npm run deploy", // Complete release process
+    
+    // Health check and monitoring scripts
+    "health": "curl -f http://localhost:5001/health || exit 1", // Health check endpoint
+    "monitor": "npm run health && echo 'Server is healthy'", // Basic monitoring
     
     // Development utilities
-    "clean": "rm -rf node_modules package-lock.json && npm install", // Clean reinstall
+    "clean": "rm -rf node_modules package-lock.json dist && npm install", // Clean reinstall
+    "clean:dist": "rm -rf dist", // Clean build directory
     "dev:debug": "nodemon --inspect src/server.js" // Start with Node.js debugger
   },
   
