@@ -437,10 +437,11 @@ New to open source? Start here!
 
 ## 🗺️ Roadmap
 
-### 🎯 Q1 2026 (Current)
+### 🎯 Q1 2024 (Current)
 - [x] Multi-platform support (LeetCode, CodeForces, CodeChef)
 - [x] Real-time data fetching
 - [x] Interactive demo mode
+- [x] Docker containerization
 - [ ] Mobile app development
 - [ ] Advanced analytics dashboard
 
@@ -486,8 +487,8 @@ A: We use official APIs where available, and safe scraping techniques for others
 **Q: Can I contribute new platform support?**  
 A: Absolutely! Check our [Contributing Guide](CONTRIBUTING.md) for details.
 
-**Q: Is there a mobile app?**  
-A: Not yet, but it's on our roadmap for Q2 2026.
+**Q: Is there a mobile app?**
+A: Not yet, but it's on our roadmap for Q2 2024.
 
 ### 🐛 Troubleshooting
 
@@ -610,7 +611,7 @@ If GrindMap helps your coding journey, consider:
 
 <div align="center">
 
-**© 2026 GrindMap. Made with ❤️ by [Yugendra N](https://github.com/Yugenjr)**
+**© 2024 GrindMap. Made with ❤️ by [Yugendra N](https://github.com/Yugenjr)**
 
 [![GitHub](https://img.shields.io/badge/GitHub-Yugenjr-181717?style=flat&logo=github&logoColor=white)](https://github.com/Yugenjr)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-YugendraN-0077B5?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/yugendran)
@@ -739,7 +740,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**© 2026 GrindMap. Made with ❤️ by [Yugendra N](https://github.com/Yugenjr)**
+**© 2024 GrindMap. Made with ❤️ by [Yugendra N](https://github.com/Yugenjr)**
 
 [![GitHub](https://img.shields.io/badge/GitHub-Yugenjr-181717?style=flat&logo=github&logoColor=white)](https://github.com/Yugenjr)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-YugendraN-0077B5?style=flat&logo=linkedin&logoColor=white)](https://linkedin.com/in/yugendran)
