@@ -36,6 +36,8 @@ function App() {
 
   return (
     <div className="app">
+  <div className="container">
+
       {showDemo ? (
         <>
           <DemoPage onBack={() => setShowDemo(false)} />
@@ -56,52 +58,20 @@ function App() {
         </>
       ) : (
         <>
-          <div style={{ textAlign: "center", marginBottom: "20px" }}>
-            <button
-              onClick={() => setShowDemo(true)}
-              style={{
-                padding: "10px 20px",
-                fontSize: "1em",
-                background: "#667eea",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                marginRight: "10px",
-              }}
-            >
-              View Demo
-            </button>
-            <button
-              onClick={() => setShowAnalytics(true)}
-              style={{
-                padding: "10px 20px",
-                fontSize: "1em",
-                background: "#4caf50",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                marginRight: "10px",
-              }}
-            >
-              View Analytics
-            </button>
-            <button
-              onClick={() => setShowBadges(true)}
-              style={{
-                padding: "10px 20px",
-                fontSize: "1em",
-                background: "#9b59b6",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              🏆 Achievements
-            </button>
-          </div>
+        <div className="top-nav">
+  <button className="nav-btn demo" onClick={() => setShowDemo(true)}>
+    View Demo
+  </button>
+
+  <button className="nav-btn analytics" onClick={() => setShowAnalytics(true)}>
+    View Analytics
+  </button>
+
+  <button className="nav-btn badges" onClick={() => setShowBadges(true)}>
+    🏆 Achievements
+  </button>
+</div>
+
           <h1>GrindMap</h1>
 
           <UsernameInputs
@@ -173,7 +143,9 @@ function App() {
           </div>
         </>
       )}
-    </div>
+      </div>
+</div>
+
   );
 }
 
