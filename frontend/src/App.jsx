@@ -1,17 +1,22 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import "./App.css";
 import CircularProgress from "./components/CircularProgress";
 
 import DemoPage from "./components/DemoPage";
-import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import BadgeCollection from "./components/BadgeCollection";
 import GoalDashboard from "./components/GoalDashboard";
 import UsernameInputs from "./components/UsernameInputs";
 import PlatformCard from "./components/PlatformCard";
+import ThemeToggle from "./components/ThemeToggle";
+
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useGrindMapData } from "./hooks/useGrindMapData";
 import { PLATFORMS, OVERALL_GOAL } from "./utils/platforms";
-import ThemeToggle from "./components/ThemeToggle";
+
+/* Lazy-loaded analytics dashboard */
+const AnalyticsDashboard = lazy(() =>
+  import("./components/AnalyticsDashboard")
+);
 
 function AppContent() {
   const [showDemo, setShowDemo] = useState(false);
@@ -50,7 +55,9 @@ function AppContent() {
             <button onClick={() => setShowAnalytics(false)} className="back-btn">
               ← Back to Main
             </button>
-            <AnalyticsDashboard platformData={platformData} />
+            <Suspense fallback={<div>Loading analytics...</div>}>
+              <AnalyticsDashboard platformData={platformData} />
+            </Suspense>
           </>
         ) : showBadges ? (
           <>
@@ -68,7 +75,7 @@ function AppContent() {
           </>
         ) : (
           <>
-            {/* Updated Navbar */}
+            {/* Glass Hover Navbar */}
             <div
               style={{
                 textAlign: "center",
@@ -86,12 +93,8 @@ function AppContent() {
             >
               <button
                 onClick={() => setShowDemo(true)}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
                 style={btnStyle}
               >
                 View Demo
@@ -99,12 +102,8 @@ function AppContent() {
 
               <button
                 onClick={() => setShowAnalytics(true)}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
                 style={btnStyle}
               >
                 View Analytics
@@ -112,12 +111,8 @@ function AppContent() {
 
               <button
                 onClick={() => setShowBadges(true)}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
                 style={btnStyle}
               >
                 🏆 Achievements
@@ -125,12 +120,8 @@ function AppContent() {
 
               <button
                 onClick={() => setShowGoals(true)}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
                 style={btnStyle}
               >
                 🎯 Goals
@@ -150,11 +141,7 @@ function AppContent() {
 
             <div className="overall">
               <h2>Overall Progress</h2>
-              <CircularProgress
-                solved={totalSolved}
-                goal={OVERALL_GOAL}
-                color="#4caf50"
-              />
+              <CircularProgress solved={totalSolved} goal={OVERALL_GOAL} color="#4caf50" />
               <p>
                 {totalSolved} / {OVERALL_GOAL} problems solved
               </p>
@@ -174,6 +161,7 @@ function AppContent() {
               ))}
             </div>
 
+            {/* Today's Activity */}
             <div className="today-activity">
               <h2>
                 Today's Activity (
@@ -193,15 +181,21 @@ function AppContent() {
                   return (
                     <div
                       key={plat.key}
-                      className={`activity-item ${submittedToday ? "done" : hasData ? "active-no-sub" : "missed"}`}
+                      className={`activity-item ${
+                        submittedToday
+                          ? "done"
+                          : hasData
+                          ? "active-no-sub"
+                          : "missed"
+                      }`}
                     >
                       <span>{plat.name}</span>
                       <span>
                         {submittedToday
                           ? "✅ Coded Today"
                           : hasData
-                            ? "✅ Active (No submission today)"
-                            : "❌ No Data"}
+                          ? "✅ Active (No submission today)"
+                          : "❌ No Data"}
                       </span>
                     </div>
                   );
