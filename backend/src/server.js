@@ -3,6 +3,7 @@ import cors from 'cors';
 import { corsOptions } from './config/cors.js';
 import { scrapeLeetCode } from './services/scraping/leetcode.scraper.js';
 import { errorHandler, notFound } from './middlewares/error.middleware.js';
+import { securityHeaders } from './middlewares/security.middleware.js';
 import { asyncHandler } from './utils/asyncHandler.js';
 import { AppError } from './utils/appError.js';
 
@@ -24,6 +25,7 @@ import { gracefulShutdown } from './utils/shutdown.util.js';
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
