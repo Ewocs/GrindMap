@@ -3,13 +3,14 @@ import Skeleton from "react-loading-skeleton";
 import "react-loading-skeleton/dist/skeleton.css";
 import "./ContributorsHallOfFame.css";
 
-const CACHE_KEY = "contributors_cache";
-const CACHE_duration = 3600000; // 1 hour in ms
+const CACHE_KEY = "contributors_cache_v3";
+const CACHE_DURATION = 3600000; // 1 hour in ms
 
 const ContributorsHallOfFame = ({ onBack }) => {
   const [contributors, setContributors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedContributor, setSelectedContributor] = useState(null);
 
   const fetchContributors = async () => {
     setLoading(true);
@@ -20,7 +21,7 @@ const ContributorsHallOfFame = ({ onBack }) => {
     if (cached) {
       const parsed = JSON.parse(cached);
       const now = new Date().getTime();
-      if (now - parsed.timestamp < CACHE_duration) {
+      if (now - parsed.timestamp < CACHE_DURATION) {
         setContributors(parsed.data);
         setLoading(false);
         return;
@@ -34,7 +35,7 @@ const ContributorsHallOfFame = ({ onBack }) => {
           "https://api.github.com/repos/Rohanrathod7/GrindMap/contributors?per_page=100",
         ),
         fetch(
-          "https://api.github.com/repos/Rohanrathod7/GrindMap/pulls?state=closed&per_page=100",
+          "https://api.github.com/repos/Yugenjr/GrindMap/pulls?state=closed&per_page=100",
         ),
       ]);
 
@@ -49,18 +50,26 @@ const ContributorsHallOfFame = ({ onBack }) => {
       if (prsRes.ok) {
         const prsData = await prsRes.json();
 
-        // Count Merged PRs by User ID
-        const prCounts = {};
+        // Map Merged PRs by User ID
+        const prMap = {};
         prsData.forEach((pr) => {
           if (pr.merged_at && pr.user) {
-            prCounts[pr.user.id] = (prCounts[pr.user.id] || 0) + 1;
+            if (!prMap[pr.user.id]) {
+              prMap[pr.user.id] = [];
+            }
+            prMap[pr.user.id].push({
+              title: pr.title,
+              url: pr.html_url,
+              number: pr.number,
+              merged_at: pr.merged_at,
+            });
           }
         });
 
-        // Merge Counts
+        // Merge PR Lists
         mergedData = contributorsData.map((contributor) => ({
           ...contributor,
-          prCount: prCounts[contributor.id] || 0,
+          prs: prMap[contributor.id] || [],
         }));
       }
 
@@ -75,7 +84,7 @@ const ContributorsHallOfFame = ({ onBack }) => {
 
       setContributors(mergedData);
     } catch (err) {
-      console.error("Error fetching data:", err);
+      console.error("Error fetching contributors:", err);
       setError(
         "Could not load the Hall of Fame. Please check your connection.",
       );
@@ -88,91 +97,120 @@ const ContributorsHallOfFame = ({ onBack }) => {
     fetchContributors();
   }, []);
 
-  if (error) {
-    return (
-      <div className="contributors-container">
+  const openPRs = (e, contributor) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedContributor(contributor);
+  };
+
+  const closeModal = () => {
+    setSelectedContributor(null);
+  };
+
+  return (
+    <div className="contributors-container">
+      <nav className="contributors-nav">
         <button onClick={onBack} className="back-btn-modern">
-          ← Back
+          ← Home
         </button>
+      </nav>
+
+      <header className="contributors-header">
+        <h2>Hall of Fame</h2>
+        <p>Honoring the minds behind the map.</p>
+      </header>
+
+      {loading ? (
+        <div className="contributors-grid">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="skeleton-card">
+              <Skeleton circle height={96} width={96} />
+              <Skeleton height={24} width={150} style={{ marginTop: 20 }} />
+              <Skeleton height={20} width={100} style={{ marginTop: 10 }} />
+            </div>
+          ))}
+        </div>
+      ) : error ? (
         <div className="error-container">
-          <h3>Connection Error</h3>
           <p>{error}</p>
           <button onClick={fetchContributors} className="retry-btn">
             Retry
           </button>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="contributors-container">
-      <div className="contributors-nav">
-        <button onClick={onBack} className="back-btn-modern">
-          ← Home
-        </button>
-      </div>
-
-      <div className="contributors-header">
-        <h2>Hall of Fame</h2>
-        <p>Honoring the minds building GrindMap</p>
-      </div>
-
-      <div className="contributors-grid">
-        {loading
-          ? Array(8)
-              .fill(0)
-              .map((_, i) => (
-                <div key={i} className="skeleton-card">
-                  <Skeleton
-                    circle
-                    width={80}
-                    height={80}
-                    style={{ marginBottom: 16 }}
-                  />
-                  <Skeleton
-                    width={120}
-                    height={20}
-                    style={{ marginBottom: 8 }}
-                  />
-                  <Skeleton
-                    width={80}
-                    height={24}
-                    style={{ borderRadius: 20 }}
-                  />
-                </div>
-              ))
-          : contributors.map((contributor) => (
-              <a
-                key={contributor.id}
-                href={contributor.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="contributor-card"
-              >
-                <div className="avatar-wrapper">
-                  <img
-                    src={contributor.avatar_url}
-                    alt={contributor.login}
-                    className="contributor-avatar"
-                  />
-                </div>
-                <div className="contributor-info">
-                  <h3>{contributor.login}</h3>
-                  <div className="contribution-badges">
-                    <div className="contribution-badge">
-                      <span>⚡</span>
-                      <span>{contributor.contributions} Commits</span>
-                    </div>
-                    <div className="contribution-badge pr-badge">
-                      <span>🔀</span>
-                      <span>{contributor.prCount} PRs</span>
-                    </div>
+      ) : (
+        <div className="contributors-grid">
+          {contributors.map((contributor) => (
+            <a
+              key={contributor.id}
+              href={contributor.html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="contributor-card"
+            >
+              <div className="avatar-wrapper">
+                <img
+                  src={contributor.avatar_url}
+                  alt={contributor.login}
+                  className="contributor-avatar"
+                />
+              </div>
+              <div className="contributor-info">
+                <h3>{contributor.login}</h3>
+                <div className="contribution-badges">
+                  <div className="contribution-badge">
+                    <span>⚡</span>
+                    <span>{contributor.contributions} Commits</span>
                   </div>
+                  {contributor.prs && contributor.prs.length > 0 && (
+                    <div
+                      className="contribution-badge pr-badge interactive"
+                      onClick={(e) => openPRs(e, contributor)}
+                      title="Click to view merged PRs"
+                    >
+                      <span>🔀</span>
+                      <span>{contributor.prs.length} PRs</span>
+                    </div>
+                  )}
                 </div>
-              </a>
-            ))}
-      </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* PR Modal */}
+      {selectedContributor && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{selectedContributor.login}'s Merged PRs</h3>
+              <button className="close-btn" onClick={closeModal}>
+                ×
+              </button>
+            </div>
+            <div className="pr-list-container">
+              {selectedContributor.prs.map((pr) => (
+                <a
+                  key={pr.number}
+                  href={pr.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pr-item"
+                >
+                  <span className="pr-icon">🔀</span>
+                  <div className="pr-details">
+                    <span className="pr-title">{pr.title}</span>
+                    <span className="pr-meta">
+                      #{pr.number} •{" "}
+                      {new Date(pr.merged_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
