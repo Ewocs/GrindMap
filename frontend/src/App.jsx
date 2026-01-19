@@ -47,8 +47,11 @@ function AppContent() {
   return (
     <div className="app">
       <div className="container">
+
         {showDemo ? (
-          <DemoPage onBack={() => setShowDemo(false)} />
+          <>
+            <DemoPage onBack={() => setShowDemo(false)} />
+          </>
         ) : showAnalytics ? (
           <>
             <button
@@ -57,8 +60,6 @@ function AppContent() {
             >
               ← Back to Main
             </button>
-
-            {/* ✅ Suspense wrapper for lazy-loaded analytics */}
             <Suspense fallback={<div>Loading analytics...</div>}>
               <AnalyticsDashboard platformData={platformData} />
             </Suspense>
@@ -81,63 +82,54 @@ function AppContent() {
           <ContributorsHallOfFame onBack={() => setShowContributors(false)} />
         ) : (
           <>
-            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+            {/* Glass Hover Navbar */}
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "20px",
+                background: "rgba(255, 255, 255, 0.15)",
+                backdropFilter: "blur(8px)",
+                height: "60px",
+                borderRadius: "10px",
+                display: "flex",
+                gap: "1rem",
+                alignItems: "center",
+                justifyContent: "space-evenly",
+                padding: "0.5rem 1rem"
+              }}
+            >
               <button
                 onClick={() => setShowDemo(true)}
-                style={{
-                  padding: "10px 20px",
-                  fontSize: "1em",
-                  background: "#667eea",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  marginRight: "10px",
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                style={btnStyle}
               >
                 View Demo
               </button>
+
               <button
                 onClick={() => setShowAnalytics(true)}
-                style={{
-                  padding: "10px 20px",
-                  fontSize: "1em",
-                  background: "#4caf50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  marginRight: "10px",
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                style={btnStyle}
               >
                 View Analytics
               </button>
+
               <button
                 onClick={() => setShowBadges(true)}
-                style={{
-                  padding: "10px 20px",
-                  fontSize: "1em",
-                  background: "#9b59b6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                  marginRight: "10px",
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                style={btnStyle}
               >
                 🏆 Achievements
               </button>
+
               <button
                 onClick={() => setShowGoals(true)}
-                style={{
-                  padding: "10px 20px",
-                  fontSize: "1em",
-                  background: "#e74c3c",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "8px",
-                  cursor: "pointer",
-                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.2)")}
+                onMouseOut={(e) => (e.currentTarget.style.background = "transparent")}
+                style={btnStyle}
               >
                 🎯 Goals
               </button>
@@ -170,11 +162,7 @@ function AppContent() {
 
             <div className="overall">
               <h2>Overall Progress</h2>
-              <CircularProgress
-                solved={totalSolved}
-                goal={OVERALL_GOAL}
-                color="#4caf50"
-              />
+              <CircularProgress solved={totalSolved} goal={OVERALL_GOAL} color="#4caf50" />
               <p>
                 {totalSolved} / {OVERALL_GOAL} problems solved
               </p>
@@ -241,6 +229,16 @@ function AppContent() {
     </div>
   );
 }
+
+const btnStyle = {
+  padding: "10px 20px",
+  fontSize: "1em",
+  border: "none",
+  background: "transparent",
+  color: "#fff",
+  borderRadius: "8px",
+  cursor: "pointer",
+};
 
 function App() {
   return (
