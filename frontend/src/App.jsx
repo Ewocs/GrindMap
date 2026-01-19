@@ -13,6 +13,7 @@ import ContributorsHallOfFame from "./components/ContributorsHallOfFame";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useGrindMapData } from "./hooks/useGrindMapData";
 import { PLATFORMS, OVERALL_GOAL } from "./utils/platforms";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 /* Lazy-loaded analytics dashboard */
 const AnalyticsDashboard = lazy(
@@ -26,6 +27,7 @@ function AppContent() {
   const [showGoals, setShowGoals] = useState(false);
   const [showContributors, setShowContributors] = useState(false);
   const [expanded, setExpanded] = useState(null);
+  const [user, setUser] = useState(null);
 
   const {
     usernames,
@@ -37,6 +39,33 @@ function AppContent() {
     getPlatformPercentage,
     hasSubmittedToday,
   } = useGrindMapData();
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const userName = params.get("name");
+
+    if (token) {
+      localStorage.setItem("authToken", token);
+      if (userName) localStorage.setItem("userName", userName);
+      setUser({ name: userName, token });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      const storedToken = localStorage.getItem("authToken");
+      const storedName = localStorage.getItem("userName");
+      if (storedToken) setUser({ name: storedName, token: storedToken });
+    }
+  }, []);
+
+  const handleLogin = () => {
+    window.location.href = "http://localhost:5001/api/auth/github";
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("userName");
+    setUser(null);
+  };
 
   const toggleExpand = (key) => {
     setExpanded(expanded === key ? null : key);
@@ -97,6 +126,46 @@ function AppContent() {
                 padding: "0.5rem 1rem",
               }}
             >
+              {user ? (
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <span
+                    style={{
+                      marginRight: "10px",
+                      fontWeight: "bold",
+                      color: "#fff",
+                    }}
+                  >
+                    👋 {user.name}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    onMouseOver={(e) =>
+                      (e.currentTarget.style.background =
+                        "rgba(231, 76, 60, 0.3)")
+                    }
+                    onMouseOut={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                    style={btnStyle}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleLogin}
+                  onMouseOver={(e) =>
+                    (e.currentTarget.style.background = "rgba(255,255,255,0.2)")
+                  }
+                  onMouseOut={(e) =>
+                    (e.currentTarget.style.background = "transparent")
+                  }
+                  style={btnStyle}
+                >
+                  🐙 GitHub Login
+                </button>
+              )}
+
               <button
                 onClick={() => setShowDemo(true)}
                 onMouseOver={(e) =>
@@ -260,7 +329,9 @@ const btnStyle = {
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <ErrorBoundary>
+        <AppContent />
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }
