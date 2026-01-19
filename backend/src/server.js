@@ -22,6 +22,9 @@ import CacheWarmingService from './utils/cacheWarmingService.js';
 import JobQueue from './services/jobQueue.service.js';
 import CronScheduler from './services/cronScheduler.service.js';
 import JobHandlers from './services/jobHandlers.service.js';
+import HealthMonitor from './utils/healthMonitor.js';
+import AlertManager from './utils/alertManager.js';
+import { performanceMonitoring, errorTracking, memoryMonitoring } from './middlewares/monitoring.middleware.js';
 
 // Import routes
 import scrapeRoutes from './routes/scrape.routes.js';
@@ -35,6 +38,7 @@ import databaseRoutes from './routes/database.routes.js';
 import websocketRoutes from './routes/websocket.routes.js';
 import quotaRoutes from './routes/quota.routes.js';
 import jobsRoutes from './routes/jobs.routes.js';
+import monitoringRoutes from './routes/monitoring.routes.js';
 
 // Import secure logger to prevent JWT exposure
 import './utils/secureLogger.js';
@@ -77,6 +81,12 @@ JobQueue.startProcessing({ concurrency: 3, types: [] });
 // Start cron scheduler
 CronScheduler.start();
 
+// Start health monitoring
+HealthMonitor.startMonitoring(30000); // Every 30 seconds
+
+// Start alert monitoring
+AlertManager.startMonitoring(60000); // Every minute
+
 // Request tracking and monitoring (first)
 app.use(correlationId);
 app.use(performanceMetrics);
@@ -89,6 +99,10 @@ app.use(enhancedSecurityHeaders);
 app.use(securityHeaders);
 app.use(requestLogger);
 app.use(securityMonitor);
+
+// Monitoring middleware
+app.use(performanceMonitoring);
+app.use(memoryMonitoring);
 
 // Advanced security middleware
 app.use(distributedRateLimit);
@@ -153,6 +167,7 @@ app.use('/api/database', databaseRoutes);
 app.use('/api/websocket', websocketRoutes);
 app.use('/api/quota', quotaRoutes);
 app.use('/api/jobs', jobsRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -171,6 +186,7 @@ app.get('/api', (req, res) => {
       websocketAPI: '/api/websocket',
       quota: '/api/quota',
       jobs: '/api/jobs',
+      monitoring: '/api/monitoring',
       health: '/health',
       database: '/api/database'
     },
@@ -182,6 +198,7 @@ app.get('/api', (req, res) => {
 app.use(notFound);
 
 // Global error handler (must be last)
+app.use(errorTracking);
 app.use(errorHandler);
 
 // Global error handlers for unhandled promises and exceptions
