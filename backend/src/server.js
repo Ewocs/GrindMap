@@ -38,6 +38,8 @@ import {
   errorTracking,
   memoryMonitoring,
 } from './middlewares/monitoring.middleware.js';
+import RequestManager from './utils/requestManager.js';
+import PuppeteerManager from './utils/puppeteerManager.js';
 
 // Import routes
 import scrapeRoutes from './routes/scrape.routes.js';
@@ -236,8 +238,13 @@ process.on('uncaughtException', err => {
 });
 
 // Graceful shutdown handler
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   Logger.info('SIGTERM received. Shutting down gracefully...');
+
+  // Cleanup resources
+  await RequestManager.cleanup();
+  await PuppeteerManager.cleanup();
+
   server.close(() => {
     Logger.info('Process terminated');
   });
