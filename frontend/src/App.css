@@ -8,12 +8,8 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
-  background: linear-gradient(
-    135deg,
-    var(--theme-primary) 0%,
-    var(--theme-secondary) 100%
-  );
-  color: var(--theme-text);
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+  color: white;
   min-height: 100vh;
   transition:
     background 0.3s ease,
@@ -25,7 +21,8 @@ body {
   padding: 20px;
 
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 }
 
 .container {
@@ -53,7 +50,7 @@ body {
   margin: 0;
   color: white;
   font-size: 3.5em;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .auth-trigger-btn {

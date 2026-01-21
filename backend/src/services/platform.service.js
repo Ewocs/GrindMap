@@ -273,6 +273,63 @@ class PlatformService {
   }
 
   /**
+   * Fetch user data from HackerRank with caching and real-time updates
+   */
+  async fetchHackerRankData(username, userId = null) {
+    const cacheKey = `platform:${PLATFORMS.HACKERRANK || 'hackerrank'}:${username}`;
+
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        return { ...data, fromCache: true };
+      }
+    } catch (cacheError) {
+      console.warn('Cache read failed for HackerRank:', cacheError.message);
+    }
+
+    try {
+      const rawData = await scrapeHackerRank(username);
+      // normalizeHackerRank might be needed if rawData isn't perfect, but let's assume rawData is what we need or check import.
+      // Line 10 imports normalizeHackerRank.
+      const normalizedData = normalizeHackerRank({ ...rawData, username });
+
+      const result = {
+        platform: PLATFORMS.HACKERRANK || 'hackerrank',
+        username,
+        ...normalizedData,
+      };
+
+      try {
+        await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
+      } catch (cacheError) {
+        console.warn('Cache write failed for HackerRank:', cacheError.message);
+      }
+
+      if (userId) {
+        try {
+          DataChangeEmitter.emitPlatformUpdate(
+            PLATFORMS.HACKERRANK || 'hackerrank',
+            username,
+            result,
+            userId
+          );
+        } catch (emitError) {
+          console.warn('Real-time update failed for HackerRank:', emitError.message);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      throw new AppError(
+        `${MESSAGES.SCRAPING_FAILED}: HackerRank - ${error.message}`,
+        500,
+        ERROR_CODES.SCRAPING_ERROR
+      );
+    }
+  }
+
+  /**
    * Get supported platforms list
    */
   getSupportedPlatforms() {

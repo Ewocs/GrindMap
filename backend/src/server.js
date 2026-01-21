@@ -71,33 +71,12 @@ const NODE_ENV = process.env.NODE_ENV || ENVIRONMENTS.DEVELOPMENT;
 globalErrorBoundary();
 
 // Connect to database
-connectDB();
+// Connect to database removed (handled in startServer)
 
 // Initialize WebSocket server
 WebSocketManager.initialize(server);
 
-// Start batch processing scheduler
-BatchProcessingService.startScheduler();
-
-// Start cache warming service
-CacheWarmingService.startDefaultSchedules();
-
-// Register job handlers
-JobQueue.registerHandler('scraping', JobHandlers.handleScraping);
-JobQueue.registerHandler('cache_warmup', JobHandlers.handleCacheWarmup);
-JobQueue.registerHandler('analytics', JobHandlers.handleAnalytics);
-JobQueue.registerHandler('notification', JobHandlers.handleNotification);
-JobQueue.registerHandler('cleanup', JobHandlers.handleCleanup);
-JobQueue.registerHandler('export', JobHandlers.handleExport);
-
-// Start job processing
-JobQueue.startProcessing({ concurrency: 3, types: [] });
-
-// Start cron scheduler
-CronScheduler.start();
-
-// Start health monitoring
-HealthMonitor.startMonitoring(30000); // Every 30 seconds
+// Services will be started after database connection in startServer
 
 // Start alert monitoring
 AlertManager.startMonitoring(60000); // Every minute
@@ -254,6 +233,25 @@ process.on('SIGTERM', async () => {
 const startServer = async () => {
   try {
     await connectDB();
+
+    // Initialize services after database connection
+    BatchProcessingService.startScheduler();
+    CacheWarmingService.startDefaultSchedules();
+
+    // Register job handlers
+    JobQueue.registerHandler('scraping', JobHandlers.handleScraping);
+    JobQueue.registerHandler('cache_warmup', JobHandlers.handleCacheWarmup);
+    JobQueue.registerHandler('analytics', JobHandlers.handleAnalytics);
+    JobQueue.registerHandler('notification', JobHandlers.handleNotification);
+    JobQueue.registerHandler('cleanup', JobHandlers.handleCleanup);
+    JobQueue.registerHandler('export', JobHandlers.handleExport);
+
+    // Start job processing
+    JobQueue.startProcessing({ concurrency: 3, types: [] });
+
+    CronScheduler.start();
+    HealthMonitor.startMonitoring(30000);
+
     server.listen(PORT, () => {
       Logger.info('Server started', {
         port: PORT,
@@ -264,7 +262,7 @@ const startServer = async () => {
       });
     });
   } catch (error) {
-    Logger.error('Failed to connect to database', error);
+    console.error('Failed to connect to database FATAL:', error);
     process.exit(1);
   }
 };
