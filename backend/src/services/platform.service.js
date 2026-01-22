@@ -8,7 +8,7 @@ import { normalizeCodeforces } from './normalization/codeforces.normalizer.js';
 import { normalizeCodeChef } from './normalization/codechef.normalizer.js';
 import { PLATFORMS, MESSAGES } from '../constants/app.constants.js';
 import { AppError, ERROR_CODES } from '../utils/appError.js';
-import OptimizedCacheManager from '../utils/optimizedCache.js';
+import APICache from '../utils/apiCache.js';
 import config from '../config/env.js';
 import DataChangeEmitter from '../utils/dataChangeEmitter.js';
 import NotificationService from './notification.service.js';
@@ -26,15 +26,12 @@ class PlatformService {
    * Fetch user data from LeetCode with caching and real-time updates
    */
   async fetchLeetCodeData(username, userId = null) {
-    const cacheKey = OptimizedCacheManager.platformKey('leetcode', username);
+    const cacheKey = APICache.platformKey('leetcode', username);
     
-    try {
-      const cached = await OptimizedCacheManager.get(cacheKey);
-      if (cached) {
-        return { ...cached, fromCache: true };
-      }
-    } catch (cacheError) {
-      console.warn('Cache read failed for LeetCode:', cacheError.message);
+    // Check cache first
+    const cached = APICache.get(cacheKey);
+    if (cached) {
+      return { ...cached, fromCache: true };
     }
 
     try {
@@ -45,7 +42,8 @@ class PlatformService {
         ...scraperResult,
       };
       
-      await OptimizedCacheManager.set(cacheKey, result, 900);
+      // Cache for 15 minutes
+      APICache.set(cacheKey, result, 900);
       
       if (userId) {
         DataChangeEmitter.emitPlatformUpdate(PLATFORMS.LEETCODE, username, result, userId);
@@ -61,20 +59,12 @@ class PlatformService {
     }
   }
 
-  /**
-   * Fetch user data from Codeforces with caching and real-time updates
-   */
   async fetchCodeforcesData(username, userId = null) {
-    const cacheKey = `platform:${PLATFORMS.CODEFORCES}:${username}`;
+    const cacheKey = APICache.platformKey('codeforces', username);
     
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        const data = JSON.parse(cached);
-        return { ...data, fromCache: true };
-      }
-    } catch (cacheError) {
-      console.warn('Cache read failed for Codeforces:', cacheError.message);
+    const cached = APICache.get(cacheKey);
+    if (cached) {
+      return { ...cached, fromCache: true };
     }
 
     try {
@@ -87,18 +77,10 @@ class PlatformService {
         ...normalizedData,
       };
       
-      try {
-        await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
-      } catch (cacheError) {
-        console.warn('Cache write failed for Codeforces:', cacheError.message);
-      }
+      APICache.set(cacheKey, result, 900);
       
       if (userId) {
-        try {
-          DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODEFORCES, username, result, userId);
-        } catch (emitError) {
-          console.warn('Real-time update failed for Codeforces:', emitError.message);
-        }
+        DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODEFORCES, username, result, userId);
       }
       
       return result;
@@ -111,20 +93,12 @@ class PlatformService {
     }
   }
 
-  /**
-   * Fetch user data from CodeChef with caching and real-time updates
-   */
   async fetchCodeChefData(username, userId = null) {
-    const cacheKey = `platform:${PLATFORMS.CODECHEF}:${username}`;
+    const cacheKey = APICache.platformKey('codechef', username);
     
-    try {
-      const cached = await redis.get(cacheKey);
-      if (cached) {
-        const data = JSON.parse(cached);
-        return { ...data, fromCache: true };
-      }
-    } catch (cacheError) {
-      console.warn('Cache read failed for CodeChef:', cacheError.message);
+    const cached = APICache.get(cacheKey);
+    if (cached) {
+      return { ...cached, fromCache: true };
     }
 
     try {
@@ -137,18 +111,10 @@ class PlatformService {
         ...normalizedData,
       };
       
-      try {
-        await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
-      } catch (cacheError) {
-        console.warn('Cache write failed for CodeChef:', cacheError.message);
-      }
+      APICache.set(cacheKey, result, 900);
       
       if (userId) {
-        try {
-          DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODECHEF, username, result, userId);
-        } catch (emitError) {
-          console.warn('Real-time update failed for CodeChef:', emitError.message);
-        }
+        DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODECHEF, username, result, userId);
       }
       
       return result;
@@ -280,7 +246,10 @@ class PlatformService {
    * Invalidate cache for user
    */
   async invalidateUserCache(username) {
-    await OptimizedCacheManager.invalidateUser(username);
+    const platforms = ['leetcode', 'codeforces', 'codechef', 'atcoder', 'github', 'skillrack'];
+    platforms.forEach(platform => {
+      APICache.delete(APICache.platformKey(platform, username));
+    });
   }
 
   /**
