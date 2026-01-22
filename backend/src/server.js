@@ -57,7 +57,6 @@ import jobsRoutes from './routes/jobs.routes.js';
 import monitoringRoutes from './routes/monitoring.routes.js';
 import grindRoomRoutes from './routes/grindRoom.routes.js';
 import tournamentRoutes from './routes/tournament.routes.js';
-import duelRoutes from './routes/duel.routes.js';
 
 import monitoringRoutes from './routes/monitoring.routes.js';
 // Import secure logger to prevent JWT exposure
@@ -211,7 +210,6 @@ app.use('/api/job-monitoring', jobMonitoringRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/rooms', grindRoomRoutes);
 app.use('/api/tournaments', tournamentRoutes);
-app.use('/api/duels', duelRoutes);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {
@@ -232,7 +230,6 @@ app.get('/api', (req, res) => {
       jobs: '/api/jobs',
       monitoring: '/api/monitoring',
       tournaments: '/api/tournaments',
-      duels: '/api/duels',
       health: '/health',
       database: '/api/database',
     },
