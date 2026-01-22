@@ -1,6 +1,6 @@
 import express from 'express';
 import ScrapeController from '../controllers/scrape.controller.js';
-import { validateUsername, validatePlatform } from '../middlewares/requestValidation.middleware.js';
+import { scrapingTimeout } from '../middlewares/requestTimeout.middleware.js';
 import { validateUsername as validateUsernameInput, sanitizeUsername } from '../middlewares/inputValidation.middleware.js';
 import { advancedRateLimit, scrapingRateLimit } from '../middlewares/antiBypassRateLimit.middleware.js';
 import { apiResponseCache } from '../middlewares/apiCache.middleware.js';
@@ -19,6 +19,7 @@ router.use('/:platform/:username', validateUsernameInput, sanitizeUsername);
  */
 router.get(
   '/leetcode/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   enforceScrapingQuota,
@@ -34,6 +35,7 @@ router.get(
  */
 router.get(
   '/codeforces/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   auditLogger('FETCH_CODEFORCES_STATS'),
@@ -48,6 +50,7 @@ router.get(
  */
 router.get(
   '/codechef/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   auditLogger('FETCH_CODECHEF_STATS'),
@@ -62,6 +65,7 @@ router.get(
  */
 router.get(
   '/atcoder/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   auditLogger('FETCH_ATCODER_STATS'),
@@ -76,6 +80,7 @@ router.get(
  */
 router.get(
   '/github/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   auditLogger('FETCH_GITHUB_STATS'),
@@ -90,6 +95,7 @@ router.get(
  */
 router.get(
   '/skillrack/:username',
+  scrapingTimeout,
   scrapingRateLimit,
   validateUsername,
   auditLogger('FETCH_SKILLRACK_STATS'),
