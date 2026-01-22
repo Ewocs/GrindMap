@@ -7,12 +7,14 @@ export const useGrindMapData = () => {
     leetcode: "",
     codeforces: "",
     codechef: "",
+    hackerearth: "",
   });
 
   const [platformData, setPlatformData] = useState({
     leetcode: null,
     codeforces: null,
     codechef: null,
+    hackerearth: null,
   });
 
   const [loading, setLoading] = useState(false);
@@ -72,6 +74,23 @@ export const useGrindMapData = () => {
         } else {
           data = { error: result.error || "User not found" };
         }
+      } else if (plat.key === "hackerearth") {
+        const res = await fetch(
+          `${API_BASE_URL}/api/scrape/hackerearth/${username}`,
+        );
+        const result = await res.json();
+        if (result.success && result.data) {
+          const { data: stats } = result;
+
+          data = {
+            rating: result.data.rating,
+            solved: result.data.totalSolved,
+            badges: result.data.badges,
+            activity: result.data.recentActivity
+          };
+        } else {
+          data = { error: result.error || "User not found" };
+        }
       }
       return { key: plat.key, data };
     } catch (err) {
@@ -108,6 +127,13 @@ export const useGrindMapData = () => {
     if (platKey === "codechef") {
       return data.rating ? Math.round((data.rating / 3000) * 100) : 0;
     }
+    if (platKey === "hackerearth") {
+      // Metric: Use Rating if available (max ~3000), otherwise use Solved count (goal ~500)
+      if (data.rating > 0) {
+        return Math.round((data.rating / 3000) * 100);
+      }
+      return data.solved ? Math.min(Math.round((data.solved / 500) * 100), 100) : 0;
+    }
     return 0;
   };
 
@@ -136,7 +162,8 @@ export const useGrindMapData = () => {
   const totalSolved =
     (platformData.leetcode?.totalSolved || 0) +
     (platformData.codeforces?.solved || 0) +
-    (platformData.codechef?.problem_fully_solved || 0);
+    (platformData.codechef?.problem_fully_solved || 0) +
+    (platformData.hackerearth?.solved || 0);
 
   return {
     usernames,

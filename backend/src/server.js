@@ -26,6 +26,8 @@ import JobHandlers from './services/jobHandlers.service.js';
 import HealthMonitor from './utils/healthMonitor.js';
 import AlertManager from './utils/alertManager.js';
 import { performanceMonitoring, errorTracking, memoryMonitoring } from './middlewares/monitoring.middleware.js';
+import passport from 'passport';
+import configurePassport from './config/passport.js';
 
 // Import routes
 import scrapeRoutes from './routes/scrape.routes.js';
@@ -40,6 +42,7 @@ import websocketRoutes from './routes/websocket.routes.js';
 import quotaRoutes from './routes/quota.routes.js';
 import jobsRoutes from './routes/jobs.routes.js';
 import monitoringRoutes from './routes/monitoring.routes.js';
+import ScrapeController from './controllers/scrape.controller.js';
 
 // Import secure logger to prevent JWT exposure
 import './utils/secureLogger.js';
@@ -133,11 +136,9 @@ configurePassport();
 // Health check endpoint
 app.get('/health', async (req, res) => {
   Logger.info('Health check accessed', { correlationId: req.correlationId });
-  
   try {
     const dbHealth = await dbManager.healthCheck();
     const dbStats = dbManager.getConnectionStats();
-    
     res.status(HTTP_STATUS.OK).json({
       success: true,
       message: 'Server is healthy',
@@ -173,6 +174,7 @@ app.use('/api/websocket', websocketRoutes);
 app.use('/api/quota', quotaRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.get('/api/hackerearth/:username', ScrapeController.getHackerEarthStats);
 
 // API documentation endpoint
 app.get('/api', (req, res) => {

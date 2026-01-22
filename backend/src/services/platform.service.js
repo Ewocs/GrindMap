@@ -4,8 +4,10 @@ import { fetchCodeChefStats } from './scraping/codechef.scraper.js';
 import { fetchAtCoderStats } from './scraping/atcoder.scraper.js';
 import { scrapeGitHub } from './scraping/github.scraper.js';
 import { fetchSkillRackStats } from './scraping/skillrack.scraper.js';
+import { scrapeHackerEarth } from './scraping/hackerearth.scraper.js';
 import { normalizeCodeforces } from './normalization/codeforces.normalizer.js';
 import { normalizeCodeChef } from './normalization/codechef.normalizer.js';
+import { normalizeHackerEarth } from './normalization/hackerearth.normalizer.js';
 import { PLATFORMS, MESSAGES } from '../constants/app.constants.js';
 import { AppError, ERROR_CODES } from '../utils/appError.js';
 import redis from '../config/redis.js';
@@ -28,7 +30,7 @@ class PlatformService {
    */
   async fetchLeetCodeData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.LEETCODE}:${username}`;
-    
+
     try {
       // Use advanced cache manager
       const cached = await AdvancedCacheManager.get(cacheKey);
@@ -46,7 +48,7 @@ class PlatformService {
         username,
         ...data,
       };
-      
+
       // Cache with advanced manager and tags
       try {
         await AdvancedCacheManager.set(cacheKey, result, config.CACHE_PLATFORM_TTL, {
@@ -55,7 +57,7 @@ class PlatformService {
       } catch (cacheError) {
         console.warn('Cache write failed for LeetCode:', cacheError.message);
       }
-      
+
       // Emit real-time update
       if (userId) {
         try {
@@ -64,7 +66,7 @@ class PlatformService {
           console.warn('Real-time update failed for LeetCode:', emitError.message);
         }
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -80,7 +82,7 @@ class PlatformService {
    */
   async fetchCodeforcesData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.CODEFORCES}:${username}`;
-    
+
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
@@ -94,19 +96,19 @@ class PlatformService {
     try {
       const rawData = await fetchCodeforcesStats(username);
       const normalizedData = normalizeCodeforces({ ...rawData, username });
-      
+
       const result = {
         platform: PLATFORMS.CODEFORCES,
         username,
         ...normalizedData,
       };
-      
+
       try {
         await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
       } catch (cacheError) {
         console.warn('Cache write failed for Codeforces:', cacheError.message);
       }
-      
+
       if (userId) {
         try {
           DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODEFORCES, username, result, userId);
@@ -114,7 +116,7 @@ class PlatformService {
           console.warn('Real-time update failed for Codeforces:', emitError.message);
         }
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -130,7 +132,7 @@ class PlatformService {
    */
   async fetchCodeChefData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.CODECHEF}:${username}`;
-    
+
     try {
       const cached = await redis.get(cacheKey);
       if (cached) {
@@ -144,19 +146,19 @@ class PlatformService {
     try {
       const rawData = await fetchCodeChefStats(username);
       const normalizedData = normalizeCodeChef({ ...rawData, username });
-      
+
       const result = {
         platform: PLATFORMS.CODECHEF,
         username,
         ...normalizedData,
       };
-      
+
       try {
         await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
       } catch (cacheError) {
         console.warn('Cache write failed for CodeChef:', cacheError.message);
       }
-      
+
       if (userId) {
         try {
           DataChangeEmitter.emitPlatformUpdate(PLATFORMS.CODECHEF, username, result, userId);
@@ -164,7 +166,7 @@ class PlatformService {
           console.warn('Real-time update failed for CodeChef:', emitError.message);
         }
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -180,7 +182,7 @@ class PlatformService {
    */
   async fetchAtCoderData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.ATCODER}:${username}`;
-    
+
     const cached = await redis.get(cacheKey);
     if (cached) {
       const data = JSON.parse(cached);
@@ -194,13 +196,13 @@ class PlatformService {
         username,
         ...data,
       };
-      
+
       await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
-      
+
       if (userId) {
         DataChangeEmitter.emitPlatformUpdate(PLATFORMS.ATCODER, username, result, userId);
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -212,11 +214,61 @@ class PlatformService {
   }
 
   /**
+   * Fetch user data from HackerEarth with caching and real-time updates
+   */
+  async fetchHackerEarthData(username, userId = null) {
+    const cacheKey = `platform:${PLATFORMS.HACKEREARTH}:${username}`;
+
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        return { ...data, fromCache: true };
+      }
+    } catch (cacheError) {
+      console.warn('Cache read failed for HackerEarth:', cacheError.message);
+    }
+
+    try {
+      const rawData = await scrapeHackerEarth(username);
+      const normalizedData = normalizeHackerEarth({ ...rawData.data, username });
+
+      const result = {
+        platform: PLATFORMS.HACKEREARTH,
+        username,
+        ...normalizedData,
+      };
+
+      try {
+        await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
+      } catch (cacheError) {
+        console.warn('Cache write failed for HackerEarth:', cacheError.message);
+      }
+
+      if (userId) {
+        try {
+          DataChangeEmitter.emitPlatformUpdate(PLATFORMS.HACKEREARTH, username, result, userId);
+        } catch (emitError) {
+          console.warn('Real-time update failed for HackerEarth:', emitError.message);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      throw new AppError(
+        `${MESSAGES.SCRAPING_FAILED}: HackerEarth - ${error.message}`,
+        500,
+        ERROR_CODES.SCRAPING_ERROR
+      );
+    }
+  }
+
+  /**
    * Fetch user data from GitHub with caching and real-time updates
    */
   async fetchGitHubData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.GITHUB}:${username}`;
-    
+
     const cached = await redis.get(cacheKey);
     if (cached) {
       const data = JSON.parse(cached);
@@ -230,13 +282,13 @@ class PlatformService {
         username,
         ...data,
       };
-      
+
       await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
-      
+
       if (userId) {
         DataChangeEmitter.emitPlatformUpdate(PLATFORMS.GITHUB, username, result, userId);
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -252,7 +304,7 @@ class PlatformService {
    */
   async fetchSkillRackData(username, userId = null) {
     const cacheKey = `platform:${PLATFORMS.SKILLRACK}:${username}`;
-    
+
     const cached = await redis.get(cacheKey);
     if (cached) {
       const data = JSON.parse(cached);
@@ -266,13 +318,13 @@ class PlatformService {
         username,
         ...data,
       };
-      
+
       await redis.set(cacheKey, JSON.stringify(result), config.CACHE_PLATFORM_TTL);
-      
+
       if (userId) {
         DataChangeEmitter.emitPlatformUpdate(PLATFORMS.SKILLRACK, username, result, userId);
       }
-      
+
       return result;
     } catch (error) {
       throw new AppError(
@@ -299,7 +351,7 @@ class PlatformService {
       const cacheKey = `platform:${platform}:${username}`;
       return redis.del(cacheKey);
     });
-    
+
     await Promise.all(promises);
   }
 
