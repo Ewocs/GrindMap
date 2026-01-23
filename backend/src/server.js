@@ -17,13 +17,19 @@ import { normalizeCodeChef } from './services/normalization/codechef.normalizer.
 import { backpressureManager } from './utils/backpressure.util.js';
 import { withTrace } from './utils/serviceTracer.util.js';
 import auditRoutes from './routes/audit.routes.js';
+import { secureLogger, secureErrorHandler } from './middlewares/secureLogging.middleware.js';
+import { validateEnvironment } from './config/environment.js';
 import { gracefulShutdown } from './utils/shutdown.util.js';
+
+// Validate environment on startup
+validateEnvironment();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
 app.use(auditLogger);
 app.use(securityAudit);
+app.use(secureLogger);
 app.use(requestLogger);
 app.use(securityMonitor);
 app.use(securityHeaders);
@@ -88,6 +94,7 @@ app.get('/api/codechef/:username',
 );
 
 app.use(notFound);
+app.use(secureErrorHandler);
 app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
