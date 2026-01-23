@@ -54,28 +54,18 @@ import advancedCacheRoutes from './routes/advancedCache.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import securityRoutes from './routes/security.routes.js';
-import databaseRoutes from './routes/database.routes.js';
-import websocketRoutes from './routes/websocket.routes.js';
-import quotaRoutes from './routes/quota.routes.js';
-import jobsRoutes from './routes/jobs.routes.js';
-import monitoringRoutes from './routes/monitoring.routes.js';
-import ScrapeController from './controllers/scrape.controller.js';
-import grindRoomRoutes from './routes/grindRoom.routes.js';
-import tournamentRoutes from './routes/tournament.routes.js';
+import healthRoutes from './routes/health.routes.js';
+import { secureLogger, secureErrorHandler } from './middlewares/secureLogging.middleware.js';
+import { validateEnvironment } from './config/environment.js';
+import { gracefulShutdown } from './utils/shutdown.util.js';
 
-import monitoringRoutes from './routes/monitoring.routes.js';
-// Import secure logger to prevent JWT exposure
+// Set default NODE_ENV if not provided
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+}
 
-import './utils/secureLogger.js';
-// Import constants
-import { HTTP_STATUS, ENVIRONMENTS } from './constants/app.constants.js';
-import Logger from './utils/logger.js';
-
-import EnvValidator from './utils/envValidator.js';
-
-// Validate environment variables before starting
-EnvValidator.validate();
-const config = EnvValidator.getConfig();
+// Validate environment on startup
+validateEnvironment();
 
 const app = express();
 const server = createServer(app);
@@ -231,133 +221,70 @@ app.use(sanitizeMongoQuery); // MongoDB injection prevention
 app.use(preventParameterPollution({ whitelist: ['tags', 'categories'] })); // HPP prevention
 app.use(validationSanitize); // Additional validation
 
-/**
- * ✅ CHANGE #5 (WRAPPED)
- * Passport should NOT initialize during tests to avoid unexpected side effects.
- */
-if (!IS_TEST) {
-  app.use(passport.initialize());
-  configurePassport();
-}
+// Health check routes (no rate limiting for load balancers)
+app.use('/health', healthRoutes);
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
-  Logger.info('Health check accessed', { correlationId: req.correlationId });
-  try {
-    const dbHealth = await dbManager.healthCheck();
-    const dbStats = dbManager.getConnectionStats();
+// Audit routes
+app.use('/api/audit', strictRateLimit, auditRoutes);
 
-  try {
-    const dbHealth = await dbManager.healthCheck();
-    const dbStats = dbManager.getConnectionStats();
+// Security management routes
+app.use('/api/security', strictRateLimit, securityRoutes);
 
-    res.status(HTTP_STATUS.OK).json({
+app.get('/api/leetcode/:username', 
+  scrapingLimiter, 
+  validateUsername, 
+  asyncHandler(async (req, res) => {
+    const { username } = req.params;
+    
+    if (!username || username.trim() === '') {
+      throw new AppError('Username is required', 400);
+    }
+    
+    const data = await backpressureManager.process(() =>
+      withTrace(req.traceId, "leetcode.scrape", () =>
+        scrapeLeetCode(username)
+      )
+    );
+    
+    res.json({
       success: true,
-      message: 'Server is healthy',
-      timestamp: new Date().toISOString(),
-      environment: NODE_ENV,
-      correlationId: req.correlationId,
-      sessionActive: !!req.session,
-      websocketClients: WebSocketManager.getClientsCount(),
-      database: dbHealth,
-      connectionStats: dbStats,
+      data,
+      traceId: req.traceId
     });
-  } catch (error) {
-    Logger.error('Health check failed', { error: error.message });
-    res.status(503).json({
-      success: false,
-      message: 'Server unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
-  }
-});
+  })
+);
 
-// API routes
-app.use('/api/scrape', scrapeRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/cache', cacheRoutes);
-app.use('/api/advanced-cache', advancedCacheRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/security', securityRoutes);
-app.use('/api/database', databaseRoutes);
-app.use('/api/websocket', websocketRoutes);
-app.use('/api/quota', quotaRoutes);
-app.use('/api/upload', fileUploadRoutes);
-app.use('/api/job-monitoring', jobMonitoringRoutes);
-app.use('/api/monitoring', monitoringRoutes);
-app.get('/api/hackerearth/:username', ScrapeController.getHackerEarthStats);
-app.use('/api/rooms', grindRoomRoutes);
-app.use('/api/tournaments', tournamentRoutes);
+app.get('/api/codeforces/:username',
+  validateUsername,
+  asyncHandler(async (req, res) => {
+    const username = req.params.username;
+    const raw = await backpressureManager.process(() =>
+      withTrace(req.traceId, "codeforces.scrape", () =>
+        fetchCodeforcesStats(username)
+      )
+    );
+    const normalized = normalizeCodeforces({ ...raw, username });
+    res.json({ success: true, data: normalized, traceId: req.traceId });
+  })
+);
 
-// API documentation endpoint
-app.get('/api', (req, res) => {
-  res.status(HTTP_STATUS.OK).json({
-    success: true,
-    message: 'GrindMap API v1.0',
-    documentation: '/api/docs',
-    endpoints: {
-      scraping: '/api/scrape',
-      authentication: '/api/auth',
-      cache: '/api/cache',
-      advancedCache: '/api/advanced-cache',
-      notifications: '/api/notifications',
-      analytics: '/api/analytics',
-      websocket: '/ws',
-      websocketAPI: '/api/websocket',
-      quota: '/api/quota',
-      jobs: '/api/jobs',
-      monitoring: '/api/monitoring',
-      tournaments: '/api/tournaments',
-      health: '/health',
-      database: '/api/database',
-    },
-    correlationId: req.correlationId,
-  });
-});
+app.get('/api/codechef/:username',
+  validateUsername,
+  asyncHandler(async (req, res) => {
+    const username = req.params.username;
+    const raw = await backpressureManager.process(() =>
+      withTrace(req.traceId, "codechef.scrape", () =>
+        fetchCodeChefStats(username)
+      )
+    );
+    const normalized = normalizeCodeChef({ ...raw, username });
+    res.json({ success: true, data: normalized, traceId: req.traceId });
+  })
+);
 
-// 404 handler for undefined routes
 app.use(notFound);
-
-// Global error handler (must be last)
-app.use(errorTracking);
+app.use(secureErrorHandler);
 app.use(errorHandler);
-
-// Global error handlers for unhandled promises and exceptions
-process.on('unhandledRejection', err => {
-  Logger.error('Unhandled Promise Rejection', {
-    error: err.message,
-    stack: err.stack,
-  });
-  process.exit(1);
-});
-
-process.on('uncaughtException', err => {
-  Logger.error('Uncaught Exception', {
-    error: err.message,
-    stack: err.stack,
-  });
-  process.exit(1);
-});
-
-// Graceful shutdown handler
-process.on('SIGTERM', async () => {
-  Logger.info('SIGTERM received. Shutting down gracefully...');
-
-  // Cleanup resources
-  await RequestManager.cleanup();
-  await PuppeteerManager.cleanup();
-
-  server.close(() => {
-    Logger.info('Process terminated');
-  });
-});
-
-// Start server
-const startServer = async () => {
-  try {
-    await connectDB();
 
     // Initialize services after database connection
     BatchProcessingService.startScheduler();
