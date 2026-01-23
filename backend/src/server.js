@@ -10,6 +10,8 @@ import { injectionProtection } from './middlewares/injection.middleware.js';
 import { xssProtection } from './middlewares/xss.middleware.js';
 import { monitoringMiddleware } from './middlewares/monitoring.middleware.js';
 import { memoryMiddleware } from './middlewares/memory.middleware.js';
+import { responseSizeLimit, compressionBombProtection, healthSizeLimit, auditSizeLimit, securitySizeLimit, scrapingSizeLimit } from './middlewares/responseLimit.middleware.js';
+import { validateContentType, healthBodyLimit, auditBodyLimit, securityBodyLimit } from './middlewares/bodyLimit.middleware.js';
 import { timeoutMiddleware, scrapingTimeout, healthTimeout, auditTimeout, securityTimeout } from './middlewares/timeout.middleware.js';
 import { adaptiveRateLimit, strictRateLimit, burstProtection, ddosProtection } from './middlewares/ddos.middleware.js';
 import { ipFilter } from './utils/ipManager.js';
@@ -30,6 +32,7 @@ import { secureLogger, secureErrorHandler } from './middlewares/secureLogging.mi
 import { validateEnvironment } from './config/environment.js';
 import { connectionManager } from './utils/connectionManager.js';
 import { memoryMonitor } from './services/memoryMonitor.service.js';
+import { bandwidthMonitor } from './services/bandwidthMonitor.service.js';
 import { cacheManager } from './utils/cacheManager.js';
 import { gracefulShutdown } from './utils/shutdown.util.js';
 
@@ -43,6 +46,9 @@ validateEnvironment();
 
 // Start memory monitoring
 memoryMonitor.start();
+
+// Start bandwidth monitoring
+bandwidthMonitor.start();
 
 // Setup memory event handlers
 memoryMonitor.on('warning', ({ usage, ratio }) => {
@@ -65,6 +71,9 @@ const PORT = process.env.PORT || 5001;
 app.use(auditLogger);
 app.use(securityAudit);
 app.use(memoryMiddleware);
+app.use(compressionBombProtection);
+app.use(responseSizeLimit()); // Default 500KB response limit
+app.use(validateContentType());
 app.use(timeoutMiddleware()); // Default 30s timeout
 app.use(monitoringMiddleware);
 app.use(ipFilter);
@@ -83,15 +92,16 @@ app.use(express.json({ limit: '10mb' }));
 app.use(sanitizeInput);
 
 // Health check routes (no rate limiting for load balancers)
-app.use('/health', healthTimeout, healthRoutes);
+app.use('/health', healthBodyLimit, healthSizeLimit, healthTimeout, healthRoutes);
 
 // Audit routes
-app.use('/api/audit', auditTimeout, strictRateLimit, auditRoutes);
+app.use('/api/audit', auditBodyLimit, auditSizeLimit, auditTimeout, strictRateLimit, auditRoutes);
 
 // Security management routes
-app.use('/api/security', securityTimeout, strictRateLimit, securityRoutes);
+app.use('/api/security', securityBodyLimit, securitySizeLimit, securityTimeout, strictRateLimit, securityRoutes);
 
 app.get('/api/leetcode/:username', 
+  scrapingSizeLimit,
   scrapingTimeout,
   scrapingLimiter, 
   validateUsername, 
@@ -117,6 +127,7 @@ app.get('/api/leetcode/:username',
 );
 
 app.get('/api/codeforces/:username',
+  scrapingSizeLimit,
   scrapingTimeout,
   validateUsername,
   asyncHandler(async (req, res) => {
@@ -132,6 +143,7 @@ app.get('/api/codeforces/:username',
 );
 
 app.get('/api/codechef/:username',
+  scrapingSizeLimit,
   scrapingTimeout,
   validateUsername,
   asyncHandler(async (req, res) => {
@@ -156,5 +168,15 @@ const server = app.listen(PORT, () => {
 
 // Setup connection management
 const connManager = connectionManager(server);
+
+// Track bandwidth usage
+server.on('request', (req, res) => {
+  const originalEnd = res.end;
+  res.end = function(chunk, encoding) {
+    const size = chunk ? Buffer.byteLength(chunk, encoding) : 0;
+    bandwidthMonitor.trackUsage(req.ip || req.connection.remoteAddress, size);
+    return originalEnd.call(this, chunk, encoding);
+  };
+});
 
 gracefulShutdown(server, connManager);
