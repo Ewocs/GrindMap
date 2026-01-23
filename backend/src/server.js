@@ -59,7 +59,9 @@ import { secureLogger, secureErrorHandler } from './middlewares/secureLogging.mi
 import { validateEnvironment } from './config/environment.js';
 import { connectionManager } from './utils/connectionManager.js';
 import { memoryMonitor } from './services/memoryMonitor.service.js';
+import { cpuMonitor } from './services/cpuMonitor.service.js';
 import { bandwidthMonitor } from './services/bandwidthMonitor.service.js';
+import { processLimiter } from './utils/processLimiter.js';
 import { cacheManager } from './utils/cacheManager.js';
 import { gracefulShutdown } from './utils/shutdown.util.js';
 
@@ -74,8 +76,14 @@ validateEnvironment();
 // Start memory monitoring
 memoryMonitor.start();
 
+// Start CPU monitoring
+cpuMonitor.start();
+
 // Start bandwidth monitoring
 bandwidthMonitor.start();
+
+// Set process resource limits
+processLimiter.setLimits();
 
 // Setup memory event handlers
 memoryMonitor.on('warning', ({ usage, ratio }) => {
@@ -90,6 +98,27 @@ memoryMonitor.on('critical', ({ usage, ratio }) => {
 memoryMonitor.on('emergency', ({ usage, ratio }) => {
   console.error(`💥 Memory emergency: ${Math.round(ratio * 100)}% usage`);
   cacheManager.clearAll(); // Clear all caches
+});
+
+// Setup CPU event handlers
+cpuMonitor.on('warning', ({ cpuPercent }) => {
+  console.warn(`⚠️ CPU warning: ${cpuPercent.toFixed(1)}% usage`);
+});
+
+cpuMonitor.on('critical', ({ cpuPercent }) => {
+  console.error(`🚨 CPU critical: ${cpuPercent.toFixed(1)}% usage`);
+  // Trigger garbage collection to free up resources
+  if (global.gc) global.gc();
+});
+
+cpuMonitor.on('emergency', ({ cpuPercent }) => {
+  console.error(`💥 CPU emergency: ${cpuPercent.toFixed(1)}% usage`);
+  // Emergency cleanup
+  cacheManager.clearAll();
+  if (global.gc) {
+    global.gc();
+    global.gc(); // Double GC in emergency
+  }
 });
 
 const app = express();
@@ -258,6 +287,7 @@ app.use('/api/security', securityBodyLimit, securitySizeLimit, securityTimeout, 
 app.get('/api/leetcode/:username', 
   scrapingSizeLimit,
   scrapingTimeout,
+  heavyOperationProtection,
   scrapingLimiter, 
   validateUsername, 
   asyncHandler(async (req, res) => {
@@ -284,6 +314,7 @@ app.get('/api/leetcode/:username',
 app.get('/api/codeforces/:username',
   scrapingSizeLimit,
   scrapingTimeout,
+  heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
     const username = req.params.username;
@@ -300,6 +331,7 @@ app.get('/api/codeforces/:username',
 app.get('/api/codechef/:username',
   scrapingSizeLimit,
   scrapingTimeout,
+  heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
     const username = req.params.username;
