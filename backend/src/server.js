@@ -1,9 +1,17 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
+import DatabasePoolMonitor from './utils/databasePoolMonitor.js';
+import dbManager from './utils/databaseManager.js';
 import { corsOptions } from './config/cors.js';
-import { scrapeLeetCode } from './services/scraping/leetcode.scraper.js';
+import passport from 'passport';
+import configurePassport from './config/passport.js';
 import { errorHandler, notFound } from './middlewares/error.middleware.js';
 import { securityHeaders } from './middlewares/security.middleware.js';
+import { securityHeaders as helmetHeaders, additionalSecurityHeaders } from './middlewares/security.headers.middleware.js';
+import { sanitizeInput, sanitizeMongoQuery, preventParameterPollution } from './middlewares/sanitization.middleware.js';
+import { enhancedSecurityHeaders } from './middlewares/enhancedSecurity.middleware.js';
 import { requestLogger, securityMonitor } from './middlewares/logging.middleware.js';
 import { auditLogger, securityAudit } from './middlewares/audit.middleware.js';
 import { injectionProtection } from './middlewares/injection.middleware.js';
@@ -119,8 +127,31 @@ app.use(xssProtection);
 app.use(secureLogger);
 app.use(requestLogger);
 app.use(securityMonitor);
-app.use(securityHeaders);
-app.use(generalLimiter);
+
+// Monitoring middleware
+app.use(performanceMonitoring);
+app.use(memoryMonitoring);
+
+// Advanced security middleware
+if (!IS_TEST) {
+  app.use(distributedRateLimit);
+  app.use(botDetection);
+  app.use(geoSecurityCheck);
+  app.use(securityAudit);
+  app.use(abuseDetection);
+}
+app.use(autoRefresh);
+
+// Request timeout handling
+app.use(apiTimeout);
+
+// API response compression
+app.use(apiCompression);
+
+// Anti-bypass rate limiting
+app.use(advancedRateLimit);
+
+// CORS configuration
 app.use(cors(corsOptions));
 app.use(parseTimeLimit()); // 1 second JSON parse limit
 app.use(express.json({ limit: '10mb' }));
@@ -204,9 +235,46 @@ app.use(notFound);
 app.use(secureErrorHandler);
 app.use(errorHandler);
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+    // Initialize services after database connection
+    BatchProcessingService.startScheduler();
+    CacheWarmingService.startDefaultSchedules();
+
+    // Register job handlers
+    JobQueue.registerHandler('scraping', JobHandlers.handleScraping);
+    JobQueue.registerHandler('cache_warmup', JobHandlers.handleCacheWarmup);
+    JobQueue.registerHandler('analytics', JobHandlers.handleAnalytics);
+    JobQueue.registerHandler('notification', JobHandlers.handleNotification);
+    JobQueue.registerHandler('cleanup', JobHandlers.handleCleanup);
+    JobQueue.registerHandler('export', JobHandlers.handleExport);
+
+    // Start job processing
+    JobQueue.startProcessing({ concurrency: 3, types: [] });
+
+    CronScheduler.start();
+    HealthMonitor.startMonitoring(30000);
+
+    server.listen(PORT, () => {
+      Logger.info('Server started', {
+        port: PORT,
+        environment: NODE_ENV,
+        healthCheck: `http://localhost:${PORT}/health`,
+        websocket: `ws://localhost:${PORT}/ws`,
+        features: ['distributed-rate-limiting', 'distributed-sessions', 'real-time-updates'],
+      });
+    });
+  } catch (error) {
+    console.error('Failed to connect to database FATAL:', error);
+    process.exit(1);
+  }
+};
+
+/**
+ * ✅ CHANGE #6 (WRAPPED)
+ * Do NOT start listening server during tests.
+ */
+if (!IS_TEST) {
+  startServer();
+}
 
 // Setup connection management
 const connManager = connectionManager(server);
