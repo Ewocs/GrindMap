@@ -36,13 +36,6 @@ import ReliableJobHandlers from './services/reliableJobHandlers.service.js';
 import HealthMonitor from './utils/healthMonitor.js';
 import AlertManager from './utils/alertManager.js';
 import { performanceMonitoring, errorTracking, memoryMonitoring } from './middlewares/monitoring.middleware.js';
-import passport from 'passport';
-import configurePassport from './config/passport.js';
-import {
-  performanceMonitoring,
-  errorTracking,
-  memoryMonitoring,
-} from './middlewares/monitoring.middleware.js';
 import RequestManager from './utils/requestManager.js';
 import PuppeteerManager from './utils/puppeteerManager.js';
 
@@ -55,6 +48,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import securityRoutes from './routes/security.routes.js';
 import healthRoutes from './routes/health.routes.js';
+import { getSystemHealth, checkDependencies, getPrometheusMetrics } from './services/health.service.js';
 import { secureLogger, secureErrorHandler } from './middlewares/secureLogging.middleware.js';
 import { validateEnvironment } from './config/environment.js';
 import { connectionManager } from './utils/connectionManager.js';
@@ -278,6 +272,40 @@ app.use(validationSanitize); // Additional validation
 // Health check routes (no rate limiting for load balancers)
 app.use('/health', healthBodyLimit, healthSizeLimit, healthTimeout, healthRoutes);
 
+// Healthz endpoint (Kubernetes style)
+app.get('/healthz', healthBodyLimit, healthSizeLimit, healthTimeout, async (req, res) => {
+  try {
+    const health = getSystemHealth();
+    const dependencies = await checkDependencies();
+    
+    const hasUnhealthy = dependencies.some(dep => dep.status === 'unhealthy');
+    const status = hasUnhealthy ? 'unhealthy' : 'healthy';
+    
+    res.status(status === 'healthy' ? 200 : 503).json({
+      status,
+      ...health,
+      dependencies
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Prometheus metrics endpoint
+app.get('/metrics', healthBodyLimit, healthSizeLimit, healthTimeout, async (req, res) => {
+  try {
+    const metrics = await getPrometheusMetrics();
+    res.set('Content-Type', register.contentType);
+    res.end(metrics);
+  } catch (error) {
+    res.status(500).end(error.message);
+  }
+});
+
 // Audit routes
 app.use('/api/audit', auditBodyLimit, auditSizeLimit, auditTimeout, strictRateLimit, auditRoutes);
 
@@ -349,6 +377,8 @@ app.use(notFound);
 app.use(secureErrorHandler);
 app.use(errorHandler);
 
+const startServer = async () => {
+  try {
     // Initialize services after database connection
     BatchProcessingService.startScheduler();
     CacheWarmingService.startDefaultSchedules();
