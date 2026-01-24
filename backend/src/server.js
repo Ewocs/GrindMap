@@ -36,13 +36,6 @@ import ReliableJobHandlers from './services/reliableJobHandlers.service.js';
 import HealthMonitor from './utils/healthMonitor.js';
 import AlertManager from './utils/alertManager.js';
 import { performanceMonitoring, errorTracking, memoryMonitoring } from './middlewares/monitoring.middleware.js';
-import passport from 'passport';
-import configurePassport from './config/passport.js';
-import {
-  performanceMonitoring,
-  errorTracking,
-  memoryMonitoring,
-} from './middlewares/monitoring.middleware.js';
 import RequestManager from './utils/requestManager.js';
 import PuppeteerManager from './utils/puppeteerManager.js';
 
@@ -64,6 +57,9 @@ import { bandwidthMonitor } from './services/bandwidthMonitor.service.js';
 import { processLimiter } from './utils/processLimiter.js';
 import { cacheManager } from './utils/cacheManager.js';
 import { gracefulShutdown } from './utils/shutdown.util.js';
+import { authBypassProtection, validateToken } from './middlewares/auth.middleware.js';
+import { fileUploadSecurity, validateFileExtensions, detectEncodedFiles } from './middlewares/fileUpload.middleware.js';
+import { apiVersionSecurity, deprecationWarning, validateApiEndpoint, versionRateLimit } from './middlewares/apiVersion.middleware.js';
 
 // Set default NODE_ENV if not provided
 if (!process.env.NODE_ENV) {
@@ -122,120 +118,35 @@ cpuMonitor.on('emergency', ({ cpuPercent }) => {
 });
 
 const app = express();
-const server = createServer(app);
-const PORT = config.port;
-const NODE_ENV = config.nodeEnv;
+const PORT = process.env.PORT || 5001;
 
-/**
- * ✅ CHANGE #1 (ADDED)
- * Detect Jest/test environment so we can skip runtime heavy operations.
- */
-const IS_TEST = NODE_ENV === 'test';
-
-// Initialize global error boundary
-globalErrorBoundary();
-
-/**
- * ✅ CHANGE #2 (WRAPPED)
- * Connect to DB only when NOT testing.
- */
-if (!IS_TEST) {
-  connectDB();
-}
-
-/**
- * ✅ CHANGE #3 (WRAPPED)
- * Initialize WebSocket server only when NOT testing.
- */
-if (!IS_TEST) {
-  WebSocketManager.initialize(server);
-}
-
-/**
- * ✅ CHANGE #4 (WRAPPED)
- * Start batch processing scheduler only when NOT testing.
- */
-if (!IS_TEST) {
-  BatchProcessingService.startScheduler();
-}
-
-/**
- * ✅ CHANGE #7 (ADDED / WRAPPED)
- * Prevent long-running background services from starting in Jest tests.
- * This avoids open handles + flaky tests.
- */
-if (!IS_TEST) {
-  // Start cache warming service
-  CacheWarmingService.startDefaultSchedules();
-
-  // Register job handlers
-  JobQueue.registerHandler('scraping', JobHandlers.handleScraping);
-  JobQueue.registerHandler('cache_warmup', JobHandlers.handleCacheWarmup);
-  JobQueue.registerHandler('analytics', JobHandlers.handleAnalytics);
-  JobQueue.registerHandler('notification', JobHandlers.handleNotification);
-  JobQueue.registerHandler('cleanup', JobHandlers.handleCleanup);
-  JobQueue.registerHandler('export', JobHandlers.handleExport);
-
-  // Start job processing
-  JobQueue.startProcessing({ concurrency: 3, types: [] });
-
-  // Start cron scheduler
-  CronScheduler.start();
-
-  // Start health monitoring
-  HealthMonitor.startMonitoring(120000); // Every 2 minutes
-
-  // Start alert monitoring
-  AlertManager.startMonitoring(300000); // Every 5 minutes
-}
-// Connect to database with pooling
-connectDB();
-
-// Start database pool monitoring
-DatabasePoolMonitor.startMonitoring(60000);
-
-// Initialize WebSocket server
-WebSocketManager.initialize(server);
-
-// Start batch processing scheduler
-BatchProcessingService.startScheduler();
-
-// Start cache warming service
-CacheWarmingService.startDefaultSchedules();
-
-// Register job handlers
-JobQueue.registerHandler('scraping', JobHandlers.handleScraping);
-JobQueue.registerHandler('cache_warmup', JobHandlers.handleCacheWarmup);
-JobQueue.registerHandler('analytics', JobHandlers.handleAnalytics);
-JobQueue.registerHandler('notification', JobHandlers.handleNotification);
-JobQueue.registerHandler('cleanup', JobHandlers.handleCleanup);
-JobQueue.registerHandler('export', JobHandlers.handleExport);
-JobQueue.registerHandler('integrity', JobHandlers.handleIntegrity);
-
-// Start robust job processing
-RobustJobQueue.startProcessing();
-
-// Start cron scheduler
-CronScheduler.start();
-
-// Start health monitoring
-HealthMonitor.startMonitoring(120000); // Every 2 minutes
-
-// Start alert monitoring
-AlertManager.startMonitoring(300000); // Every 5 minutes
-
-// Request tracking and monitoring (first)
-app.use(correlationId);
-app.use(performanceMetrics);
-
-// Distributed session management
-app.use(DistributedSessionManager.middleware());
-
-// Enhanced security middleware
-app.use(helmetHeaders); // Helmet security headers
-app.use(additionalSecurityHeaders); // Custom security headers
-app.use(enhancedSecurityHeaders);
-app.use(securityHeaders);
+app.use(auditLogger);
+app.use(securityAudit);
+app.use(requestSizeTracker);
+app.use(cpuProtection);
+app.use(memoryMiddleware);
+app.use(maliciousPayloadDetection);
+app.use(compressionBombProtection);
+app.use(responseSizeLimit()); // Default 500KB response limit
+app.use(validateContentType());
+app.use(timeoutMiddleware()); // Default 30s timeout
+app.use(monitoringMiddleware);
+app.use(ipFilter);
+app.use(ddosProtection);
+app.use(burstProtection);
+app.use(adaptiveRateLimit);
+app.use(injectionProtection);
+app.use(xssProtection);
+app.use(authBypassProtection);
+app.use(validateToken);
+app.use(fileUploadSecurity);
+app.use(validateFileExtensions);
+app.use(detectEncodedFiles);
+app.use(apiVersionSecurity);
+app.use(deprecationWarning);
+app.use(validateApiEndpoint);
+app.use(versionRateLimit);
+app.use(secureLogger);
 app.use(requestLogger);
 app.use(securityMonitor);
 
@@ -264,16 +175,10 @@ app.use(advancedRateLimit);
 
 // CORS configuration
 app.use(cors(corsOptions));
-
-// Body parsing middleware
+app.use(parseTimeLimit()); // 1 second JSON parse limit
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-// Input sanitization and validation
-app.use(sanitizeInput); // XSS and injection prevention
-app.use(sanitizeMongoQuery); // MongoDB injection prevention
-app.use(preventParameterPollution({ whitelist: ['tags', 'categories'] })); // HPP prevention
-app.use(validationSanitize); // Additional validation
+app.use(validateJSONStructure);
+app.use(sanitizeInput);
 
 // Health check routes (no rate limiting for load balancers)
 app.use('/health', healthBodyLimit, healthSizeLimit, healthTimeout, healthRoutes);
@@ -285,6 +190,7 @@ app.use('/api/audit', auditBodyLimit, auditSizeLimit, auditTimeout, strictRateLi
 app.use('/api/security', securityBodyLimit, securitySizeLimit, securityTimeout, strictRateLimit, securityRoutes);
 
 app.get('/api/leetcode/:username', 
+  scrapingBodyLimit,
   scrapingSizeLimit,
   scrapingTimeout,
   heavyOperationProtection,
@@ -292,10 +198,6 @@ app.get('/api/leetcode/:username',
   validateUsername, 
   asyncHandler(async (req, res) => {
     const { username } = req.params;
-    
-    if (!username || username.trim() === '') {
-      throw new AppError('Username is required', 400);
-    }
     
     const data = await backpressureManager.process(() =>
       withTrace(req.traceId, "leetcode.scrape", () =>
@@ -312,12 +214,13 @@ app.get('/api/leetcode/:username',
 );
 
 app.get('/api/codeforces/:username',
+  scrapingBodyLimit,
   scrapingSizeLimit,
   scrapingTimeout,
   heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
-    const username = req.params.username;
+    const { username } = req.params;
     const raw = await backpressureManager.process(() =>
       withTrace(req.traceId, "codeforces.scrape", () =>
         fetchCodeforcesStats(username)
@@ -329,12 +232,13 @@ app.get('/api/codeforces/:username',
 );
 
 app.get('/api/codechef/:username',
+  scrapingBodyLimit,
   scrapingSizeLimit,
   scrapingTimeout,
   heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
-    const username = req.params.username;
+    const { username } = req.params;
     const raw = await backpressureManager.process(() =>
       withTrace(req.traceId, "codechef.scrape", () =>
         fetchCodeChefStats(username)
@@ -349,6 +253,9 @@ app.use(notFound);
 app.use(secureErrorHandler);
 app.use(errorHandler);
 
+// Start server function
+const startServer = async () => {
+  try {
     // Initialize services after database connection
     BatchProcessingService.startScheduler();
     CacheWarmingService.startDefaultSchedules();
@@ -398,7 +305,7 @@ server.on('request', (req, res) => {
   const originalEnd = res.end;
   res.end = function(chunk, encoding) {
     const size = chunk ? Buffer.byteLength(chunk, encoding) : 0;
-    bandwidthMonitor.trackUsage(req.ip || req.connection.remoteAddress, size);
+    bandwidthMonitor.trackUsage(req.ip || req.socket.remoteAddress, size);
     return originalEnd.call(this, chunk, encoding);
   };
 });
