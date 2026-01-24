@@ -58,6 +58,9 @@ import { bandwidthMonitor } from './services/bandwidthMonitor.service.js';
 import { processLimiter } from './utils/processLimiter.js';
 import { cacheManager } from './utils/cacheManager.js';
 import { gracefulShutdown } from './utils/shutdown.util.js';
+import { authBypassProtection, validateToken } from './middlewares/auth.middleware.js';
+import { fileUploadSecurity, validateFileExtensions, detectEncodedFiles } from './middlewares/fileUpload.middleware.js';
+import { apiVersionSecurity, deprecationWarning, validateApiEndpoint, versionRateLimit } from './middlewares/apiVersion.middleware.js';
 
 // Set default NODE_ENV if not provided
 if (!process.env.NODE_ENV) {
@@ -321,10 +324,6 @@ app.get('/api/leetcode/:username',
   asyncHandler(async (req, res) => {
     const { username } = req.params;
     
-    if (!username || username.trim() === '') {
-      throw new AppError('Username is required', 400);
-    }
-    
     const data = await backpressureManager.process(() =>
       withTrace(req.traceId, "leetcode.scrape", () =>
         scrapeLeetCode(username)
@@ -345,7 +344,7 @@ app.get('/api/codeforces/:username',
   heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
-    const username = req.params.username;
+    const { username } = req.params;
     const raw = await backpressureManager.process(() =>
       withTrace(req.traceId, "codeforces.scrape", () =>
         fetchCodeforcesStats(username)
@@ -362,7 +361,7 @@ app.get('/api/codechef/:username',
   heavyOperationProtection,
   validateUsername,
   asyncHandler(async (req, res) => {
-    const username = req.params.username;
+    const { username } = req.params;
     const raw = await backpressureManager.process(() =>
       withTrace(req.traceId, "codechef.scrape", () =>
         fetchCodeChefStats(username)
@@ -428,7 +427,7 @@ server.on('request', (req, res) => {
   const originalEnd = res.end;
   res.end = function(chunk, encoding) {
     const size = chunk ? Buffer.byteLength(chunk, encoding) : 0;
-    bandwidthMonitor.trackUsage(req.ip || req.connection.remoteAddress, size);
+    bandwidthMonitor.trackUsage(req.ip || req.socket.remoteAddress, size);
     return originalEnd.call(this, chunk, encoding);
   };
 });
