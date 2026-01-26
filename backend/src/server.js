@@ -315,11 +315,15 @@ app.use('/api/audit', auditBodyLimit, auditSizeLimit, auditTimeout, strictRateLi
 // Security management routes
 app.use('/api/security', securityBodyLimit, securitySizeLimit, securityTimeout, strictRateLimit, securityRoutes);
 
+// CSRF token endpoint
+app.get('/api/csrf-token', csrfTokenEndpoint);
+
 app.get('/api/leetcode/:username', 
   scrapingSizeLimit,
   scrapingTimeout,
   heavyOperationProtection,
   scrapingLimiter, 
+  csrfProtection,
   validateUsername, 
   asyncHandler(async (req, res) => {
     const { username } = req.params;
@@ -328,7 +332,7 @@ app.get('/api/leetcode/:username',
       withTrace(req.traceId, "leetcode.scrape", () =>
         scrapeLeetCode(username)
       )
-    );
+    );//done
     
     res.json({
       success: true,
@@ -372,6 +376,7 @@ app.get('/api/codechef/:username',
   })
 );
 
+// 404 handler for undefined routes
 app.use(notFound);
 app.use(secureErrorHandler);
 app.use(errorHandler);
