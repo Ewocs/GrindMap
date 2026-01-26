@@ -23,6 +23,7 @@ const ContributorsHallOfFame = lazy(
 const UserProfile = lazy(() => import("./components/UserProfile"));
 const AuthModal = lazy(() => import("./components/AuthModal"));
 const CTAPage = lazy(() => import("./components/CTAPage"));
+const ProductivityGame = lazy(() => import("./components/ProductivityGame"));
 const DashboardLayout = lazy(() =>
   import("./components/dashboard").then((mod) => ({
     default: mod.DashboardLayout,
@@ -48,6 +49,7 @@ function AppContent() {
   const [showHRDashboard, setShowHRDashboard] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCTA, setShowCTA] = useState(false);
+  const [showProductivityGame, setShowProductivityGame] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [user, setUser] = useState(null);
 
@@ -186,6 +188,10 @@ function AppContent() {
         <Suspense fallback={<LoadingFallback message="Loading contact page..." />}>
           <CTAPage onBack={() => setShowCTA(false)} />
         </Suspense>
+      ) : showProductivityGame ? (
+        <Suspense fallback={<LoadingFallback message="Loading productivity game..." />}>
+          <ProductivityGame onBack={() => setShowProductivityGame(false)} />
+        </Suspense>
       ) : showHRDashboard ? (
         <>
           <button
@@ -320,6 +326,18 @@ function AppContent() {
               style={{ ...btnStyle, border: "1px solid #ffd700" }}
             >
               📞 Contact
+            </button>
+            <button
+              onClick={() => setShowProductivityGame(true)}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.background = "rgba(255,107,107,0.3)")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+              style={{ ...btnStyle, border: "1px solid #ff6b6b" }}
+            >
+              🎯 Daily Game
             </button>
           </div>
 
